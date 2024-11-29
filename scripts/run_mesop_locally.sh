@@ -1,0 +1,1 @@
+gunicorn deploy_azure_fastagency.local.main_mesop:app

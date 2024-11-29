@@ -1,0 +1,19 @@
+version: '3'
+
+services:
+  # nosemgrep: yaml.docker-compose.security.writable-filesystem-service.writable-filesystem-service, yaml.docker-compose.security.no-new-privileges.no-new-privileges
+  python-3.12-deploy_azure_fastagency:
+    image: mcr.microsoft.com/devcontainers/python:3.12
+    container_name: deploy_azure_fastagency-${USER}-python-3.12
+    volumes:
+      - ../:/workspaces/deploy_azure_fastagency:cached
+    command: sleep infinity
+
+    env_file:
+      - ./devcontainer.env
+    networks:
+      - deploy_azure_fastagency-network
+
+networks:
+  deploy_azure_fastagency-network:
+    name: deploy_azure_fastagency-${USER}-network
