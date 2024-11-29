@@ -6,7 +6,7 @@
 RESOURCE_GROUP="deploy-azure-fastagency-rg"
 CONTAINER_APP_NAME="deploy-azure-fastagency"
 LOCATION="westeurope"
-ACR_NAME="deploy-azure-fastagency-acr"
+ACR_NAME="deployazurefastagencyacr"
 
 
 echo -e "\033[0;32mChecking if already logged into Azure\033[0m"
