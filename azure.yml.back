@@ -1,0 +1,31 @@
+location: $LOCATION
+name: $CONTAINER_APP_NAME
+properties:
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      additionalPortMappings:
+      - exposedPort: 8008
+        external: true
+        targetPort: 8008
+      allowInsecure: false
+      external: true
+      targetPort: 8888
+      traffic:
+      - latestRevision: true
+        weight: 100
+      transport: http
+  # Please update the subscription id below
+  managedEnvironmentId: "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.App/managedEnvironments/$CONTAINER_APP_NAME-env"
+  template:
+    containers:
+    - image: $ACR_NAME.azurecr.io/$CONTAINER_APP_NAME:latest
+      name: $CONTAINER_APP_NAME
+      resources:
+        cpu: 1
+        memory: 2Gi
+    scale:
+      maxReplicas: 2
+      minReplicas: 0
+  workloadProfileName: Consumption
+type: Microsoft.App/containerApps

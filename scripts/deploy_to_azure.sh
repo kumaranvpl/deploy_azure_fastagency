@@ -3,10 +3,11 @@
 # Script to deploy to Azure Container Apps using Azure CLI
 
 # Variables
-RESOURCE_GROUP="deploy-azure-fastagency-rg"
-CONTAINER_APP_NAME="deploy-azure-fastagency"
-LOCATION="westeurope"
-ACR_NAME="deployazurefastagencyacr"
+export RESOURCE_GROUP="deploy-azure-fastagency-rg"
+export CONTAINER_APP_NAME="deploy-azure-fastagency"
+export LOCATION="westeurope"
+export ACR_NAME="deployazurefastagencyacr"
+export VNET_NAME="deploy-azure-fastagency-vnet"
 
 
 echo -e "\033[0;32mChecking if already logged into Azure\033[0m"
@@ -31,30 +32,50 @@ docker push $ACR_NAME.azurecr.io/${CONTAINER_APP_NAME}:latest
 
 echo -e "\033[0;32mChecking if container app environment exists\033[0m"
 if ! az containerapp env show --name "$CONTAINER_APP_NAME-env" --resource-group $RESOURCE_GROUP > /dev/null 2>&1; then
+
+    echo -e "\033[0;32mCreating vnet for container app environment\033[0m"
+    az network vnet create --resource-group $RESOURCE_GROUP \
+      --name $VNET_NAME --location $LOCATION --address-prefix 10.0.0.0/16
+    az network vnet subnet create --resource-group $RESOURCE_GROUP \
+      --vnet-name $VNET_NAME --name infrastructure-subnet \
+      --address-prefixes 10.0.0.0/21
+    az network vnet subnet update --resource-group $RESOURCE_GROUP \
+      --vnet-name $VNET_NAME --name infrastructure-subnet \
+      --delegations Microsoft.App/environments
+
+    INFRASTRUCTURE_SUBNET=`az network vnet subnet show --resource-group ${RESOURCE_GROUP} --vnet-name $VNET_NAME --name infrastructure-subnet --query "id" -o tsv | tr -d '[:space:]'`
+
     echo -e "\033[0;32mCreating container app environment\033[0m"
     az containerapp env create \
       --name "$CONTAINER_APP_NAME-env" \
       --resource-group $RESOURCE_GROUP \
-      --location $LOCATION
+      --location $LOCATION \
+      --infrastructure-subnet-resource-id $INFRASTRUCTURE_SUBNET
 else
     echo -e "\033[0;32mContainer app environment already exists\033[0m"
 fi
+
+echo -e "\033[0;32mUpdating azure.yml file\033[0m"
+export SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+# sed -i -e "s/<subscription_id>/$SUBSCRIPTION_ID/g" azure.yml
+envsubst < azure.yml > azure.yml.tmp && mv azure.yml.tmp azure.yml
 
 echo -e "\033[0;32mCreating container app\033[0m"
 az containerapp create \
   --name $CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
-  --environment "$CONTAINER_APP_NAME-env" \
-  --image $ACR_NAME.azurecr.io/${CONTAINER_APP_NAME}:latest \
-  --target-port 8888 \
-  --ingress 'external' \
-  --query properties.configuration.ingress.fqdn \
-  --registry-server $ACR_NAME.azurecr.io \
-  --cpu 1 \
-  --memory 2Gi \
-  --min-replicas 0 \
-  --max-replicas 2 \
-  --env-vars OPENAI_API_KEY=$OPENAI_API_KEY
+  --yaml azure.yml
+  # --environment "$CONTAINER_APP_NAME-env" \
+  # --image $ACR_NAME.azurecr.io/${CONTAINER_APP_NAME}:latest \
+  # --target-port 8888 \
+  # --ingress 'external' \
+  # --query properties.configuration.ingress.fqdn \
+  # --registry-server $ACR_NAME.azurecr.io \
+  # --cpu 1 \
+  # --memory 2Gi \
+  # --min-replicas 0 \
+  # --max-replicas 2 \
+  # --env-vars OPENAI_API_KEY=$OPENAI_API_KEY
 
 # echo -e "\033[0;32mUpdating fastapi port in container app\033[0m"
 # az containerapp update \
