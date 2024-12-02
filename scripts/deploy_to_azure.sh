@@ -55,38 +55,31 @@ else
     echo -e "\033[0;32mContainer app environment already exists\033[0m"
 fi
 
-echo -e "\033[0;32mUpdating azure.yml file\033[0m"
-export SUBSCRIPTION_ID=$(az account show --query id --output tsv)
-# sed -i -e "s/<subscription_id>/$SUBSCRIPTION_ID/g" azure.yml
-envsubst < azure.yml > azure.yml.tmp && mv azure.yml.tmp azure.yml
+# echo -e "\033[0;32mUpdating azure.yml file\033[0m"
+# export SUBSCRIPTION_ID=$(az account show --query id --output tsv)
+# envsubst < azure.yml > azure.yml.tmp && mv azure.yml.tmp azure.yml
 
 echo -e "\033[0;32mCreating container app\033[0m"
 az containerapp create \
   --name $CONTAINER_APP_NAME \
   --resource-group $RESOURCE_GROUP \
-  --yaml azure.yml
-  # --environment "$CONTAINER_APP_NAME-env" \
-  # --image $ACR_NAME.azurecr.io/${CONTAINER_APP_NAME}:latest \
-  # --target-port 8888 \
-  # --ingress 'external' \
-  # --query properties.configuration.ingress.fqdn \
-  # --registry-server $ACR_NAME.azurecr.io \
-  # --cpu 1 \
-  # --memory 2Gi \
-  # --min-replicas 0 \
-  # --max-replicas 2 \
-  # --env-vars OPENAI_API_KEY=$OPENAI_API_KEY
+  --environment "$CONTAINER_APP_NAME-env" \
+  --image $ACR_NAME.azurecr.io/${CONTAINER_APP_NAME}:latest \
+  --target-port 8888 \
+  --ingress 'external' \
+  --query properties.configuration.ingress.fqdn \
+  --registry-server $ACR_NAME.azurecr.io \
+  --cpu 1 \
+  --memory 2Gi \
+  --min-replicas 0 \
+  --max-replicas 2 \
+  --env-vars OPENAI_API_KEY=$OPENAI_API_KEY
 
-# echo -e "\033[0;32mUpdating fastapi port in container app\033[0m"
-# az containerapp update \
-#   --name $CONTAINER_APP_NAME \
-#   --resource-group $RESOURCE_GROUP \
-#   --add-ports 8008
-# echo -e "\033[0;32mUpdating fastapi port in container app\033[0m"
-# az containerapp update \
-#   --name $CONTAINER_APP_NAME \
-#   --resource-group $RESOURCE_GROUP \
-#   --add-ports 8888
+echo -e "\033[0;32mUpdating container app to expose all the service ports\033[0m"
+az containerapp update \
+  --name $CONTAINER_APP_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --yaml azure.yml
 
 echo -e "\033[0;32mSetting up session affinity\033[0m"
 az containerapp ingress sticky-sessions set \

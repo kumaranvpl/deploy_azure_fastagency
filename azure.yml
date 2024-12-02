@@ -1,15 +1,16 @@
-location: westeurope
-name: deploy-azure-fastagency
+# location: westeurope
+# name: deploy-azure-fastagency
 properties:
   configuration:
     activeRevisionsMode: Single
-    registries:
-      - server: deployazurefastagencyacr.azurecr.io
+    # registries:
+    #   - server: deployazurefastagencyacr.azurecr.io
+    #     identity: system
     ingress:
       additionalPortMappings:
-      - exposedPort: 8008
+      - targetPort: 8008
         external: true
-        targetPort: 8008
+        # exposedPort: 8008
       allowInsecure: false
       external: true
       targetPort: 8888
@@ -18,16 +19,16 @@ properties:
         weight: 100
       transport: http
   # Please update the subscription id below
-  managedEnvironmentId: "/subscriptions/17a59428-c3d7-4cd7-94fe-b99d97d5f0ef/resourceGroups/deploy-azure-fastagency-rg/providers/Microsoft.App/managedEnvironments/deploy-azure-fastagency-env"
-  template:
-    containers:
-    - image: deployazurefastagencyacr.azurecr.io/deploy-azure-fastagency:latest
-      name: deploy-azure-fastagency
-      resources:
-        cpu: 1
-        memory: 2Gi
-    scale:
-      maxReplicas: 2
-      minReplicas: 0
-  workloadProfileName: Consumption
+  # managedEnvironmentId: "/subscriptions/17a59428-c3d7-4cd7-94fe-b99d97d5f0ef/resourceGroups/deploy-azure-fastagency-rg/providers/Microsoft.App/managedEnvironments/deploy-azure-fastagency-env"
+  # template:
+  #   containers:
+  #   - image: deployazurefastagencyacr.azurecr.io/deploy-azure-fastagency:latest
+  #     name: deploy-azure-fastagency
+  #     resources:
+  #       cpu: 1
+  #       memory: 2Gi
+  #   scale:
+  #     maxReplicas: 2
+  #     minReplicas: 0
+  # workloadProfileName: Consumption
 type: Microsoft.App/containerApps
