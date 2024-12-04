@@ -11,6 +11,13 @@ pre-commit install
 # nosemgrep: bash.curl.security.curl-pipe-bash.curl-pipe-bash
 curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
 
+# install aws CLI
+# nosemgrep: bash.curl.security.curl-pipe-bash.curl-pipe-bash
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+rm -rf aws awscliv2.zip
+
 # check OPENAI_API_KEY environment variable is set
 if [ -z "$OPENAI_API_KEY" ]; then
     echo
