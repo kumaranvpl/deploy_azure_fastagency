@@ -4,8 +4,8 @@
 AWS_REGION="eu-central-1"  # Replace with your region
 CONTAINER_APP_NAME="deploy-aws-fastagency"
 ECR_REPO_NAME="${CONTAINER_APP_NAME}"
-APP_RUNNER_ROLE_NAME="AppRunnerECRAccessRole"
-IAM_POLICY_NAME="PassRolePolicyForAppRunner"
+APP_RUNNER_ROLE_NAME="AppRunnerECRFastAgencyAccessRole"
+IAM_POLICY_NAME="GetPassRolePolicyForAppRunner"
 
 echo -e "\033[0;32mChecking if AWS CLI is configured\033[0m"
 if ! aws sts get-caller-identity > /dev/null 2>&1; then
@@ -44,23 +44,26 @@ echo -e "\033[0;32mAttaching ECR read-only policy to the IAM role\033[0m"
 aws iam attach-role-policy \
     --region $AWS_REGION \
     --role-name $APP_RUNNER_ROLE_NAME \
-    --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    --policy-arn arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess
 
 echo -e "\033[0;32mCreating PassRolePolicy for App Runner if it doesn't exist\033[0m"
 if ! aws iam get-policy --policy-arn arn:aws:iam::$ACCOUNT_ID:policy/$IAM_POLICY_NAME --region $AWS_REGION > /dev/null 2>&1; then
     aws iam create-policy \
         --region $AWS_REGION \
         --policy-name $IAM_POLICY_NAME \
-        --policy-document '{
-            "Version": "2012-10-17",
-            "Statement": [
+        --policy-document "{
+            \"Version\": \"2012-10-17\",
+            \"Statement\": [
                 {
-                    "Effect": "Allow",
-                    "Action": "iam:PassRole",
-                    "Resource": "arn:aws:iam::'"$ACCOUNT_ID"':role/'"$APP_RUNNER_ROLE_NAME"'"
+                    \"Effect\": \"Allow\",
+                    \"Action\": [
+                        \"iam:GetRole\",
+                        \"iam:PassRole\"
+                    ],
+                    \"Resource\": \"arn:aws:iam::$AWS_ACCOUNT_ID:role/$APP_RUNNER_ROLE_NAME\"
                 }
             ]
-        }'
+        }"
     echo -e "\033[0;32mPolicy $IAM_POLICY_NAME created.\033[0m"
 else
     echo -e "\033[0;32mPolicy $IAM_POLICY_NAME already exists.\033[0m"
@@ -88,23 +91,23 @@ if ! aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='$CON
     SERVICE_ARN=$(aws apprunner create-service \
         --service-name $CONTAINER_APP_NAME \
         --region $AWS_REGION \
-        --source-configuration '{
-            "AuthenticationConfiguration": {
-                "AccessRoleArn": "arn:aws:iam::$AWS_ACCOUNT_ID:role/$APP_RUNNER_ROLE_NAME"
+        --source-configuration "{
+            \"AuthenticationConfiguration\": {
+                \"AccessRoleArn\": \"arn:aws:iam::$AWS_ACCOUNT_ID:role/$APP_RUNNER_ROLE_NAME\"
             },
-            "ImageRepository": {
-                "ImageIdentifier": "'$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest'",
-                "ImageRepositoryType": "ECR",
-                "ImageConfiguration": {
-                    "Port": "8888",
-                    "RuntimeEnvironmentVariables": {"OPENAI_API_KEY": "'$OPENAI_API_KEY'"}
+            \"ImageRepository\": {
+                \"ImageIdentifier\": \"$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest\",
+                \"ImageRepositoryType\": \"ECR\",
+                \"ImageConfiguration\": {
+                    \"Port\": \"8888\",
+                    \"RuntimeEnvironmentVariables\": {\"OPENAI_API_KEY\": \"$OPENAI_API_KEY\"}
                 }
             }
-        }' \
-        --instance-configuration '{
-            "Cpu": "1 vCPU",
-            "Memory": "2 GB"
-        }' \
+        }" \
+        --instance-configuration "{
+            \"Cpu\": \"1 vCPU\",
+            \"Memory\": \"2 GB\"
+        }" \
         --query 'Service.ServiceArn' \
         --output text)
 else
@@ -112,31 +115,33 @@ else
     SERVICE_ARN=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='$CONTAINER_APP_NAME'].ServiceArn" --output text --region $AWS_REGION)
     aws apprunner update-service \
         --service-arn $SERVICE_ARN \
-        --source-configuration '{
-            "AuthenticationConfiguration": {
-                "AccessRoleArn": "arn:aws:iam::$AWS_ACCOUNT_ID:role/$APP_RUNNER_ROLE_NAME"
+        --source-configuration "{
+            \"AuthenticationConfiguration\": {
+                \"AccessRoleArn\": \"arn:aws:iam::$AWS_ACCOUNT_ID:role/$APP_RUNNER_ROLE_NAME\"
             },
-            "ImageRepository": {
-                "ImageIdentifier": "'$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest'",
-                "ImageRepositoryType": "ECR",
-                "ImageConfiguration": {
-                    "Port": "8888",
-                    "RuntimeEnvironmentVariables": {"OPENAI_API_KEY": "'$OPENAI_API_KEY'"}
+            \"ImageRepository\": {
+                \"ImageIdentifier\": \"$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_REPO_NAME:latest\",
+                \"ImageRepositoryType\": \"ECR\",
+                \"ImageConfiguration\": {
+                    \"Port\": \"8888\",
+                    \"RuntimeEnvironmentVariables\": {\"OPENAI_API_KEY\": \"$OPENAI_API_KEY\"}
                 }
             }
-        }' \
-        --instance-configuration '{
-            "Cpu": "1 vCPU",
-            "Memory": "2 GB"
-        }' \
+        }" \
+        --instance-configuration "{
+            \"Cpu\": \"1 vCPU\",
+            \"Memory\": \"2 GB\"
+        }" \
         --query 'Service.ServiceArn' \
         --output text
 fi
+echo -e "\033[0;32mYour AWS App Runner service is deployed!\033[0m"
 
-
+echo -e "\033[0;32mFetching hosted URL!\033[0m"
 SERVICE_URL=$(aws apprunner describe-service --service-arn $SERVICE_ARN \
+    --region $AWS_REGION \
     --query 'Service.ServiceUrl' \
     --output text)
 
-echo -e "\033[0;32mYour AWS App Runner service is deployed!\033[0m"
+
 echo -e "\033[0;32mService URL: $SERVICE_URL\033[0m"
