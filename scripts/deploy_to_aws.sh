@@ -97,10 +97,11 @@ echo -e "\033[0;32mCreating VPC\033[0m"
 VPC_CHECK=$(aws ec2 describe-vpcs \
     --filters "Name=tag:Name,Values=$VPC_NAME" \
     --query 'Vpcs[0].VpcId' \
+    --region "$AWS_REGION" \
     --output text 2>/dev/null)
 
 # Conditional check for VPC existence
-if [ -z "$VPC_CHECK" ]; then
+if [ -z "$VPC_CHECK" ] || [ "$VPC_CHECK" == "None" ]; then
     # Create the VPC
     VPC_ID=$(aws ec2 create-vpc \
         --cidr-block 10.0.0.0/16 \
@@ -129,10 +130,11 @@ echo -e "\033[0;32mCreating subnet\033[0m"
 SUBNET_CHECK=$(aws ec2 describe-subnets \
     --filters "Name=vpc-id,Values=$VPC_ID" \
     --query 'Subnets[0].SubnetId' \
+    --region "$AWS_REGION" \
     --output text 2>/dev/null)
 
 # Conditional check for subnet existence
-if [ -z "$SUBNET_CHECK" ]; then
+if [ -z "$SUBNET_CHECK" ] || [ "$SUBNET_CHECK" == "None" ] || [ "$SUBNET_CHECK" == "null" ] || [ "$SUBNET_CHECK" == "[]" ]; then
     # Create the subnet
     SUBNET_ID=$(aws ec2 create-subnet \
         --vpc-id "$VPC_ID" \
@@ -159,10 +161,11 @@ echo -e "\033[0;32mCreating security group\033[0m"
 SECURITY_GROUP_CHECK=$(aws ec2 describe-security-groups \
     --filters "Name=vpc-id,Values=$VPC_ID" \
     --query 'SecurityGroups[0].GroupId' \
+    --region "$AWS_REGION" \
     --output text 2>/dev/null)
 
 # Conditional check for security group existence
-if [ -z "$SECURITY_GROUP_CHECK" ]; then
+if [ -z "$SECURITY_GROUP_CHECK" ] || [ "$SECURITY_GROUP_CHECK" == "None" ] || [ "$SECURITY_GROUP_CHECK" == "null" ] || [ "$SECURITY_GROUP_CHECK" == "[]" ]; then
     # Create the security group
     SECURITY_GROUP_ID=$(aws ec2 create-security-group \
         --group-name "$SERVICE_NAME" \
