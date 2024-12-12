@@ -6,10 +6,11 @@
 # - EB CLI installed
 
 # Variables
-export APPLICATION_NAME="deploy-aws-fastagency"
-export ENVIRONMENT_NAME="deploy-aws-fastagency-env"
+export APPLICATION_NAME="aws-fastagency-deploy"
+export ENVIRONMENT_NAME="aws-fastagency-deploy-env"
 export AWS_REGION="eu-central-1"
-export ECR_REPOSITORY="deploy-aws-fastagency"
+export ECR_REPOSITORY="aws-fastagency-deploy"
+export BUCKET_NAME="aws-fastagency-deploy"
 export INSTANCE_PROFILE_NAME="aws-elasticbeanstalk-ec2-role"
 export ROLE_NAME="aws-elasticbeanstalk-ec2-role"
 
@@ -130,6 +131,7 @@ fi
 
 # Login to AWS ECR
 colored_echo "Logging into Amazon ECR"
+rm ~/.docker/config.json
 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names $ECR_REPOSITORY --query 'repositories[0].repositoryUri' --output text | sed 's/'"$ECR_REPOSITORY"'$//')
 
 # Build Docker image
@@ -142,9 +144,22 @@ REPOSITORY_URI=$(aws ecr describe-repositories --repository-names $ECR_REPOSITOR
 docker tag $ECR_REPOSITORY:latest $REPOSITORY_URI:latest
 docker push $REPOSITORY_URI:latest
 
+colored_echo $REPOSITORY_URI
+
 # Create Elastic Beanstalk application if it doesn't exist
 colored_echo "Creating/Updating Elastic Beanstalk Application"
 aws elasticbeanstalk create-application --application-name $APPLICATION_NAME --region $AWS_REGION || true
+
+# Check if the S3 bucket exists and create it if it doesn't
+if ! aws s3api head-bucket --bucket "$BUCKET_NAME" 2>/dev/null; then
+    colored_echo "Creating S3 bucket: $BUCKET_NAME"
+    aws s3api create-bucket \
+        --bucket "$BUCKET_NAME" \
+        --region "$AWS_REGION" \
+        --create-bucket-configuration LocationConstraint="$AWS_REGION"
+else
+    colored_echo "S3 bucket $BUCKET_NAME already exists"
+fi
 
 # Prepare Dockerrun.aws.json for Elastic Beanstalk
 colored_echo "Creating Dockerrun.aws.json"
@@ -165,6 +180,26 @@ cat > Dockerrun.aws.json << EOF
 }
 EOF
 
+# Package Dockerrun.aws.json into a ZIP file
+PACKAGE_NAME="app-deployment.zip"
+colored_echo "Packaging Dockerrun.aws.json into $PACKAGE_NAME"
+zip -r $PACKAGE_NAME Dockerrun.aws.json
+
+# Upload the ZIP package to S3
+colored_echo "Uploading $PACKAGE_NAME to S3 bucket $BUCKET_NAME"
+aws s3 cp $PACKAGE_NAME s3://$BUCKET_NAME/$PACKAGE_NAME
+
+rm Dockerrun.aws.json $PACKAGE_NAME
+
+# Create a new application version in Elastic Beanstalk
+VERSION_LABEL="v$(date +%Y%m%d%H%M%S)"
+colored_echo "Creating new application version: $VERSION_LABEL"
+aws elasticbeanstalk create-application-version \
+    --region "$AWS_REGION" \
+    --application-name "$APPLICATION_NAME" \
+    --version-label "$VERSION_LABEL" \
+    --source-bundle S3Bucket="$BUCKET_NAME",S3Key="$PACKAGE_NAME"
+
 # Create Elastic Beanstalk environment
 colored_echo "Creating/Updating Elastic Beanstalk Environment"
 aws elasticbeanstalk create-environment \
@@ -173,11 +208,16 @@ aws elasticbeanstalk create-environment \
     --environment-name $ENVIRONMENT_NAME \
     --solution-stack-name "64bit Amazon Linux 2023 v4.4.1 running Docker" \
     --option-settings '[{"Namespace":"aws:autoscaling:asg","OptionName":"MinSize","Value":"1"},{"Namespace":"aws:autoscaling:asg","OptionName":"MaxSize","Value":"2"},{"Namespace":"aws:elasticbeanstalk:environment","OptionName":"EnvironmentType","Value":"LoadBalanced"},{"Namespace":"aws:autoscaling:launchconfiguration","OptionName":"IamInstanceProfile","Value":"'$INSTANCE_PROFILE_NAME'"}]' \
+    --version-label $VERSION_LABEL \
     || aws elasticbeanstalk update-environment \
         --region $AWS_REGION \
         --application-name $APPLICATION_NAME \
         --environment-name $ENVIRONMENT_NAME \
-        --version-label latest
+        --version-label $VERSION_LABEL
+
+# Wait for environment to be ready and get URL
+colored_echo "Waiting for environment to be ready"
+aws elasticbeanstalk wait environment-updated --application-name $APPLICATION_NAME --environment-name $ENVIRONMENT_NAME --region $AWS_REGION
 
 # Set environment variables
 colored_echo "Setting environment variables"
