@@ -1,6 +1,6 @@
 #!/bin/bash
 # Script to deploy to AWS Elastic Beanstalk
-# Prerequisites: 
+# Prerequisites:
 # - AWS CLI installed and configured
 # - Docker installed
 # - EB CLI installed
@@ -8,7 +8,7 @@
 # Variables
 export APPLICATION_NAME="aws-fastagency-deploy"
 export ENVIRONMENT_NAME="aws-fastagency-deploy-env"
-export AWS_REGION="eu-central-1"
+export AWS_REGION=${AWS_REGION:-"eu-central-1"}
 export ECR_REPOSITORY="aws-fastagency-deploy"
 export BUCKET_NAME="aws-fastagency-deploy"
 export INSTANCE_PROFILE_NAME="aws-elasticbeanstalk-ec2-role"
