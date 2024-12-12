@@ -174,6 +174,14 @@ cat > Dockerrun.aws.json << EOF
     {
       "ContainerPort": "8888",
       "HostPort": "80"
+    },
+    {
+      "ContainerPort": "8888",
+      "HostPort": "443"
+    },
+    {
+      "ContainerPort": "8008",
+      "HostPort": "8008"
     }
   ],
   "Volumes": []
